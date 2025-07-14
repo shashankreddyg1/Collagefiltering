@@ -1,0 +1,53 @@
+.login-container {
+  width: 100%;
+}
+
+/* Left Side - Banner */
+.left-banner {
+  width: 50%;
+  background: linear-gradient(135deg,rgb(45, 73, 104), #0056b3);
+  color: white;
+  text-align: center;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+}
+  .bottom{
+    display: flex;
+    font-size: 20px;
+    font-weight: bold;
+    padding:30px;
+    text-align:bottom ;
+
+  }
+  
+  .right-side {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:rgb(253, 253, 253); /* Bootstrap light gray */
+  }
+  
+  .form-container {
+    width: 350px;
+    padding: 30px;
+    border-radius: 10px;
+    background: white;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .btn-primary {
+    background-color:rgb(0, 0, 0);
+    border: none;
+  }
+  
+  .btn-primary:hover {
+    background-color: #0056b3;
+  }
+  .text-end-forget {
+    text-align:center
+
+  }

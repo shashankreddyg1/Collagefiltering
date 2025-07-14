@@ -1,0 +1,73 @@
+/* Main container for the signup page */
+.signup-container {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+  }
+  
+  /* Left Side - Banner */
+  .left-banner {
+    width: 50%;
+    background: linear-gradient(135deg, rgb(45, 73, 104), #0056b3);
+    color: white;
+    text-align: center;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+  }
+  
+  .banner-title {
+    font-size: 3rem;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+  
+  .author-text {
+    font-size: 1.2rem;
+    font-style: italic;
+    margin-top: 10px;
+  }
+  
+  /* Bottom part for "Made by Shashank Reddy" */
+  .bottom {
+    position: absolute;
+    bottom: 30px;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    width: 100%;
+  }
+  
+  /* Right Side - Sign Up Form */
+  .right-side {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(253, 253, 253); /* Light gray background */
+  }
+  
+  .form-container {
+    width: 350px;
+    padding: 30px;
+    border-radius: 10px;
+    background: white;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .btn-primary {
+    background-color: rgb(0, 0, 0);
+    border: none;
+  }
+  
+  .btn-primary:hover {
+    background-color: #0056b3;
+  }
+  
+  .text-end-forget {
+    text-align: center;
+  }
+  
