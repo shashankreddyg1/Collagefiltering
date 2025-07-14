@@ -60,14 +60,15 @@ import {
 
 import './App.css';
 
+// API Configuration - Make sure this matches your backend
 const API_BASE_URL = 'http://localhost:5000';
 
 function App() {
   // State management
   const [colleges, setColleges] = useState([]);
-  const [filteredColleges, setFilteredColleges] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState('checking'); // checking, connected, disconnected
   const [darkMode, setDarkMode] = useState(() => 
     localStorage.getItem('darkMode') === 'true'
   );
@@ -98,74 +99,123 @@ function App() {
   const [compareList, setCompareList] = useState([]);
   const [showComparison, setShowComparison] = useState(false);
 
-  // Enhanced mock data with more realistic college information
-  const mockColleges = [
-    {
-      name: "Massachusetts Institute of Technology",
-      year_founded: 1861,
-      city: "Cambridge",
-      state: "Massachusetts",
-      facilities: "Research Labs, Library, Sports Complex, Innovation Hub, Medical Center, AI Lab",
-      type: "private",
-      rating: 4.8,
-      enrollment: 11000,
-      tuition: 53790,
-      acceptance_rate: 7.3,
-      description: "Leading technology institute known for innovation and research excellence."
-    },
-    {
-      name: "Stanford University",
-      year_founded: 1885,
-      city: "Stanford",
-      state: "California",
-      facilities: "Innovation Hub, Medical Center, Athletics, Research Labs, Library, Startup Incubator",
-      type: "private",
-      rating: 4.7,
-      enrollment: 17000,
-      tuition: 56169,
-      acceptance_rate: 4.3,
-      description: "Premier research university in Silicon Valley with strong entrepreneurial culture."
-    },
-    {
-      name: "Harvard University",
-      year_founded: 1636,
-      city: "Cambridge",
-      state: "Massachusetts",
-      facilities: "Historical Library, Museums, Research Centers, Medical School, Law School",
-      type: "private",
-      rating: 4.6,
-      enrollment: 23000,
-      tuition: 54002,
-      acceptance_rate: 3.4,
-      description: "Oldest institution of higher education in the United States."
-    },
-    {
-      name: "University of California, Berkeley",
-      year_founded: 1868,
-      city: "Berkeley",
-      state: "California",
-      facilities: "Research Labs, Library, Sports Complex, Engineering School, Business School",
-      type: "public",
-      rating: 4.4,
-      enrollment: 45000,
-      tuition: 14254,
-      acceptance_rate: 17.5,
-      description: "Top public research university known for academic excellence and activism."
-    },
-    {
-      name: "University of Chicago",
-      year_founded: 1890,
-      city: "Chicago",
-      state: "Illinois",
-      facilities: "Library, Research Centers, Medical Center, Arts Complex, Business School",
-      type: "private",
-      rating: 4.4,
-      enrollment: 17000,
-      tuition: 59298,
-      acceptance_rate: 7.4,
-      description: "Research university known for rigorous academics and intellectual discourse."
+  // Check backend connection on app load
+  useEffect(() => {
+    checkBackendConnection();
+  }, []);
+
+  const checkBackendConnection = async () => {
+    try {
+      console.log('Checking backend connection...');
+      const response = await fetch(`${API_BASE_URL}/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Backend connection successful:', data);
+        setConnectionStatus('connected');
+        
+        // Check if database has data
+        if (data.college_count === 0) {
+          setError('Database is empty. Backend is connected but no college data found.');
+        }
+      } else {
+        throw new Error(`Backend responded with status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Backend connection failed:', error);
+      setConnectionStatus('disconnected');
+      setError(`Cannot connect to backend: ${error.message}. Make sure Flask server is running on ${API_BASE_URL}`);
     }
-  ];
+  };
+
+  // Enhanced API call function with better error handling
+  const fetchColleges = useCallback(async (params) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Check if any search parameter is provided
+      const hasSearchTerm = Object.values(params).some(value => value && value.trim());
+      
+      if (!hasSearchTerm) {
+        setColleges([]);
+        return;
+      }
+
+      console.log('Searching with params:', params);
+
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value && value.trim()) {
+          queryParams.append(key, value.trim());
+        }
+      });
+
+      // Try the enhanced search endpoint first
+      let response;
+      let endpoint;
+      
+      try {
+        // Use the new /search endpoint for multiple parameters
+        endpoint = `${API_BASE_URL}/search?${queryParams}`;
+        console.log('Calling API:', endpoint);
+        
+        response = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        console.log('API Response status:', response.status);
+        
+      } catch (fetchError) {
+        console.error('Fetch error:', fetchError);
+        throw new Error(`Network error: ${fetchError.message}`);
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('API Response data:', data);
+        
+        if (Array.isArray(data)) {
+          setColleges(data);
+          setConnectionStatus('connected');
+        } else {
+          throw new Error('Invalid response format from API');
+        }
+      } else if (response.status === 404) {
+        // No results found
+        setColleges([]);
+        setError('No colleges found matching your search criteria.');
+      } else if (response.status === 503) {
+        // Database connection issues
+        throw new Error('Database connection not available. Please check backend logs.');
+      } else {
+        // Other errors
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `API error: ${response.status}`);
+      }
+      
+    } catch (error) {
+      console.error('Search error:', error);
+      setError(`Search failed: ${error.message}`);
+      setColleges([]);
+      
+      // If it's a connection error, update connection status
+      if (error.message.includes('fetch') || error.message.includes('Network')) {
+        setConnectionStatus('disconnected');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Debounce hook
   const useDebounce = (value, delay) => {
@@ -184,113 +234,14 @@ function App() {
     return debouncedValue;
   };
 
-  const debouncedSearchParams = useDebounce(searchParams, 300);
+  const debouncedSearchParams = useDebounce(searchParams, 500);
 
-  // API call function
-  const fetchColleges = useCallback(async (params) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Check if any search parameter is provided
-      const hasSearchTerm = Object.values(params).some(value => value && value.trim());
-      
-      if (!hasSearchTerm) {
-        setColleges([]);
-        setFilteredColleges([]);
-        return;
-      }
-
-      // Try API first, fallback to mock data
-      try {
-        const queryParams = new URLSearchParams();
-        Object.entries(params).forEach(([key, value]) => {
-          if (value && value.trim()) {
-            queryParams.append(key, value.trim());
-          }
-        });
-
-        const response = await fetch(`${API_BASE_URL}/search?${queryParams}`);
-        
-        if (response.ok) {
-          const data = await response.json();
-          setColleges(data);
-          setFilteredColleges(data);
-        } else {
-          throw new Error('API not available');
-        }
-      } catch (apiError) {
-        console.warn('API not available, using mock data');
-        // Filter mock data
-        const filtered = filterMockData(params);
-        setColleges(filtered);
-        setFilteredColleges(filtered);
-      }
-    } catch (error) {
-      setError('Error fetching college data: ' + error.message);
-    } finally {
-      setLoading(false);
+  // Effect for search with connection check
+  useEffect(() => {
+    if (connectionStatus === 'connected') {
+      fetchColleges(debouncedSearchParams);
     }
-  }, []);
-
-  // Filter mock data function
-  const filterMockData = (params) => {
-    return mockColleges.filter(college => {
-      return Object.entries(params).every(([key, value]) => {
-        if (!value || !value.trim()) return true;
-
-        const searchValue = value.toLowerCase().trim();
-        switch (key) {
-          case 'name':
-            return college.name.toLowerCase().includes(searchValue);
-          case 'city':
-            return college.city.toLowerCase().includes(searchValue);
-          case 'year':
-            return college.year_founded.toString().includes(searchValue);
-          case 'state':
-            return college.state.toLowerCase().includes(searchValue);
-          case 'facility':
-            return college.facilities.toLowerCase().includes(searchValue);
-          case 'collegeType':
-            return college.type === searchValue;
-          case 'minYear':
-            return college.year_founded >= parseInt(searchValue);
-          case 'maxYear':
-            return college.year_founded <= parseInt(searchValue);
-          case 'minRating':
-            return college.rating >= parseFloat(searchValue);
-          default:
-            return true;
-        }
-      });
-    });
-  };
-
-  // Effect for search
-  useEffect(() => {
-    fetchColleges(debouncedSearchParams);
-  }, [debouncedSearchParams, fetchColleges]);
-
-  // Sort colleges
-  useEffect(() => {
-    const sorted = [...filteredColleges].sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'year':
-          return b.year_founded - a.year_founded;
-        case 'city':
-          return a.city.localeCompare(b.city);
-        case 'state':
-          return a.state.localeCompare(b.state);
-        case 'rating':
-          return (b.rating || 0) - (a.rating || 0);
-        default:
-          return 0;
-      }
-    });
-    setFilteredColleges(sorted);
-  }, [sortBy, colleges]);
+  }, [debouncedSearchParams, fetchColleges, connectionStatus]);
 
   // Handle input changes
   const handleInputChange = (field, value) => {
@@ -315,7 +266,123 @@ function App() {
       minRating: ""
     });
     setCurrentPage(1);
+    setError(null);
   };
+
+  // Test connection function
+  const testConnection = async () => {
+    setError(null);
+    setLoading(true);
+    
+    try {
+      console.log('Testing connection to:', API_BASE_URL);
+      
+      // Test basic connection
+      const healthResponse = await fetch(`${API_BASE_URL}/health`);
+      if (!healthResponse.ok) {
+        throw new Error(`Health check failed: ${healthResponse.status}`);
+      }
+      
+      const healthData = await healthResponse.json();
+      console.log('Health check result:', healthData);
+      
+      // Test search endpoint
+      const searchResponse = await fetch(`${API_BASE_URL}/college?name=test`);
+      console.log('Search test status:', searchResponse.status);
+      
+      if (searchResponse.ok || searchResponse.status === 404) {
+        setConnectionStatus('connected');
+        setError(null);
+        alert(`✅ Connection successful!\nDatabase: ${healthData.database}\nColleges: ${healthData.college_count}`);
+      } else {
+        throw new Error(`Search endpoint failed: ${searchResponse.status}`);
+      }
+      
+    } catch (error) {
+      console.error('Connection test failed:', error);
+      setConnectionStatus('disconnected');
+      setError(`Connection test failed: ${error.message}`);
+      alert(`❌ Connection failed: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Setup sample data
+  const setupSampleData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/setup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        alert(`✅ Sample data added successfully!\nAdded ${data.inserted_count} colleges`);
+        checkBackendConnection(); // Refresh connection status
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to setup sample data');
+      }
+    } catch (error) {
+      console.error('Setup error:', error);
+      setError(`Setup failed: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Connection status indicator
+  const ConnectionStatus = () => (
+    <Paper elevation={2} sx={{ p: 2, mb: 2, 
+      bgcolor: connectionStatus === 'connected' ? 'success.light' : 
+              connectionStatus === 'disconnected' ? 'error.light' : 'warning.light',
+      color: 'white'
+    }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center">
+        <Box display="flex" alignItems="center" gap={1}>
+          <Box sx={{ 
+            width: 12, 
+            height: 12, 
+            borderRadius: '50%', 
+            bgcolor: connectionStatus === 'connected' ? 'success.main' : 
+                     connectionStatus === 'disconnected' ? 'error.main' : 'warning.main',
+            animation: connectionStatus === 'checking' ? 'pulse 1s infinite' : 'none'
+          }} />
+          <Typography variant="body2">
+            Backend: {connectionStatus === 'connected' ? 'Connected' : 
+                     connectionStatus === 'disconnected' ? 'Disconnected' : 'Checking...'}
+          </Typography>
+          <Typography variant="caption" sx={{ opacity: 0.8 }}>
+            ({API_BASE_URL})
+          </Typography>
+        </Box>
+        <Box>
+          <Button 
+            size="small" 
+            variant="outlined" 
+            onClick={testConnection}
+            sx={{ mr: 1, color: 'inherit', borderColor: 'inherit' }}
+          >
+            Test Connection
+          </Button>
+          {connectionStatus === 'connected' && (
+            <Button 
+              size="small" 
+              variant="outlined" 
+              onClick={setupSampleData}
+              sx={{ color: 'inherit', borderColor: 'inherit' }}
+            >
+              Add Sample Data
+            </Button>
+          )}
+        </Box>
+      </Box>
+    </Paper>
+  );
 
   // Favorites functionality
   const toggleFavorite = (collegeName) => {
@@ -342,7 +409,7 @@ function App() {
 
   // Export functionality
   const exportToCSV = () => {
-    if (filteredColleges.length === 0) {
+    if (colleges.length === 0) {
       setError('No colleges to export');
       return;
     }
@@ -350,7 +417,7 @@ function App() {
     const headers = ['Name', 'Year Founded', 'City', 'State', 'Type', 'Rating', 'Enrollment', 'Tuition', 'Acceptance Rate'];
     const csvContent = [
       headers.join(','),
-      ...filteredColleges.map(college => [
+      ...colleges.map(college => [
         `"${college.name}"`,
         college.year_founded,
         `"${college.city}"`,
@@ -397,21 +464,9 @@ function App() {
   };
 
   // Pagination
-  const totalPages = Math.ceil(filteredColleges.length / itemsPerPage);
+  const totalPages = Math.ceil(colleges.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentColleges = filteredColleges.slice(startIndex, startIndex + itemsPerPage);
-
-  // Statistics
-  const stats = {
-    total: filteredColleges.length,
-    avgYear: filteredColleges.length > 0 
-      ? Math.round(filteredColleges.reduce((sum, college) => sum + college.year_founded, 0) / filteredColleges.length)
-      : 0,
-    states: new Set(filteredColleges.map(college => college.state)).size,
-    avgRating: filteredColleges.filter(c => c.rating).length > 0
-      ? (filteredColleges.reduce((sum, college) => sum + (college.rating || 0), 0) / filteredColleges.filter(c => c.rating).length).toFixed(1)
-      : 0
-  };
+  const currentColleges = colleges.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <Box sx={{ 
@@ -437,7 +492,7 @@ function App() {
                 🎓 College Search Pro
               </Typography>
               <Typography variant="h6" sx={{ opacity: 0.9 }}>
-                Discover your perfect college match with advanced search and comparison tools
+                Advanced college search with real-time API integration
               </Typography>
             </Box>
             <Box display="flex" alignItems="center" gap={2}>
@@ -463,6 +518,9 @@ function App() {
           </Box>
         </Paper>
 
+        {/* Connection Status */}
+        <ConnectionStatus />
+
         {/* Search Section */}
         <Paper elevation={2} sx={{ p: 3, mb: 4, borderRadius: 3 }}>
           {/* Search Controls */}
@@ -484,6 +542,7 @@ function App() {
                 startIcon={<Download />}
                 onClick={exportToCSV}
                 color="success"
+                disabled={colleges.length === 0}
               >
                 Export CSV
               </Button>
@@ -513,6 +572,7 @@ function App() {
                     </InputAdornment>
                   ),
                 }}
+                placeholder="e.g., Harvard, MIT"
               />
             </Grid>
             <Grid item xs={12} md={6} lg={4}>
@@ -528,6 +588,7 @@ function App() {
                     </InputAdornment>
                   ),
                 }}
+                placeholder="e.g., Cambridge, Boston"
               />
             </Grid>
             <Grid item xs={12} md={6} lg={4}>
@@ -544,6 +605,7 @@ function App() {
                     </InputAdornment>
                   ),
                 }}
+                placeholder="e.g., 1636"
               />
             </Grid>
             <Grid item xs={12} md={6} lg={4}>
@@ -569,6 +631,7 @@ function App() {
                 label="Facility"
                 value={searchParams.facility}
                 onChange={(e) => handleInputChange('facility', e.target.value)}
+                placeholder="e.g., Library, Lab, Sports"
               />
             </Grid>
           </Grid>
@@ -668,7 +731,9 @@ function App() {
         {loading && (
           <Box display="flex" flexDirection="column" alignItems="center" py={8}>
             <CircularProgress size={60} />
-            <Typography variant="h6" sx={{ mt: 2 }}>Searching colleges...</Typography>
+            <Typography variant="h6" sx={{ mt: 2 }}>
+              {connectionStatus === 'checking' ? 'Connecting to backend...' : 'Searching colleges...'}
+            </Typography>
             <Typography variant="body2" color="text.secondary">
               Please wait while we find the best matches
             </Typography>
@@ -676,17 +741,17 @@ function App() {
         )}
 
         {/* Results Section */}
-        {!loading && filteredColleges.length > 0 && (
+        {!loading && colleges.length > 0 && (
           <Fade in={true}>
             <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
               {/* Results Header */}
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
                 <Box display="flex" alignItems="center" gap={2}>
                   <Typography variant="h6">
-                    Found {filteredColleges.length} colleges
+                    Found {colleges.length} colleges
                   </Typography>
                   <Chip 
-                    label={`${filteredColleges.length} results`} 
+                    label={`${colleges.length} results`} 
                     color="primary" 
                     size="small"
                   />
@@ -722,34 +787,6 @@ function App() {
                   </Box>
                 </Box>
               </Box>
-
-              {/* Statistics */}
-              <Grid container spacing={2} mb={4}>
-                <Grid item xs={6} md={3}>
-                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.main', color: 'white' }}>
-                    <Typography variant="h4" fontWeight="bold">{stats.total}</Typography>
-                    <Typography variant="body2">Total Results</Typography>
-                  </Paper>
-                </Grid>
-                <Grid item xs={6} md={3}>
-                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'secondary.main', color: 'white' }}>
-                    <Typography variant="h4" fontWeight="bold">{stats.avgYear}</Typography>
-                    <Typography variant="body2">Avg Founded</Typography>
-                  </Paper>
-                </Grid>
-                <Grid item xs={6} md={3}>
-                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.main', color: 'white' }}>
-                    <Typography variant="h4" fontWeight="bold">{stats.states}</Typography>
-                    <Typography variant="body2">States</Typography>
-                  </Paper>
-                </Grid>
-                <Grid item xs={6} md={3}>
-                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.main', color: 'white' }}>
-                    <Typography variant="h4" fontWeight="bold">{stats.avgRating}</Typography>
-                    <Typography variant="body2">Avg Rating</Typography>
-                  </Paper>
-                </Grid>
-              </Grid>
 
               {/* College Results */}
               <Grid container spacing={3}>
@@ -892,7 +929,7 @@ function App() {
         )}
 
         {/* No Results */}
-        {!loading && filteredColleges.length === 0 && Object.values(searchParams).some(v => v) && (
+        {!loading && colleges.length === 0 && Object.values(searchParams).some(v => v) && connectionStatus === 'connected' && (
           <Paper elevation={1} sx={{ p: 6, textAlign: 'center', borderRadius: 3 }}>
             <Search sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
             <Typography variant="h5" gutterBottom>
@@ -913,15 +950,49 @@ function App() {
         )}
 
         {/* Welcome Message */}
-        {!loading && filteredColleges.length === 0 && !Object.values(searchParams).some(v => v) && (
+        {!loading && colleges.length === 0 && !Object.values(searchParams).some(v => v) && connectionStatus === 'connected' && (
           <Paper elevation={1} sx={{ p: 6, textAlign: 'center', borderRadius: 3 }}>
             <School sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
             <Typography variant="h5" gutterBottom>
               Welcome to College Search Pro
             </Typography>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" color="text.secondary" gutterBottom>
               Start searching by entering a college name, city, state, year, or facility above
             </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Backend is connected and ready to search!
+            </Typography>
+          </Paper>
+        )}
+
+        {/* Connection Error Message */}
+        {connectionStatus === 'disconnected' && (
+          <Paper elevation={1} sx={{ p: 6, textAlign: 'center', borderRadius: 3, bgcolor: 'error.light', color: 'white' }}>
+            <Typography variant="h5" gutterBottom>
+              ❌ Backend Connection Failed
+            </Typography>
+            <Typography variant="body1" gutterBottom>
+              Cannot connect to the Flask backend server
+            </Typography>
+            <Typography variant="body2" gutterBottom>
+              Make sure your backend is running on {API_BASE_URL}
+            </Typography>
+            <Box mt={2}>
+              <Button 
+                variant="outlined" 
+                onClick={testConnection}
+                sx={{ mr: 2, color: 'inherit', borderColor: 'inherit' }}
+              >
+                Test Connection
+              </Button>
+              <Button 
+                variant="outlined" 
+                onClick={checkBackendConnection}
+                sx={{ color: 'inherit', borderColor: 'inherit' }}
+              >
+                Retry
+              </Button>
+            </Box>
           </Paper>
         )}
 
@@ -1025,7 +1096,7 @@ function App() {
         {/* Error Snackbar */}
         <Snackbar 
           open={!!error} 
-          autoHideDuration={6000} 
+          autoHideDuration={8000} 
           onClose={() => setError(null)}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
@@ -1033,6 +1104,13 @@ function App() {
             onClose={() => setError(null)} 
             severity="error" 
             sx={{ width: '100%' }}
+            action={
+              connectionStatus === 'disconnected' && (
+                <Button color="inherit" size="small" onClick={testConnection}>
+                  RETRY
+                </Button>
+              )
+            }
           >
             {error}
           </Alert>
