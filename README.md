@@ -105,9 +105,7 @@ Several improvements and features are planned for future releases:
 - Integration with external college databases and APIs
 - Mobile application development for iOS and Android platforms
 
-## License
 
-This project is licensed under the MIT License, which permits unrestricted use, distribution, and modification.
 
 ## Author
 
