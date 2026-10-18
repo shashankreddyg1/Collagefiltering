@@ -12,13 +12,12 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-# Updated MongoDB connection with your new credentials
+# MongoDB connection — read from the environment; never commit credentials.
 try:
-    # IMPORTANT: Change your password immediately after using this!
-    # For production, use environment variables
-    MONGODB_URI = os.getenv('MONGODB_URI', 
-                           "mongodb+srv://shashankreddyg1:123%401234Sh@cluster0.uein54z.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
-    
+    MONGODB_URI = os.getenv("MONGODB_URI")
+    if not MONGODB_URI:
+        raise RuntimeError("MONGODB_URI environment variable is not set")
+
     client = pymongo.MongoClient(MONGODB_URI)
     # Test the connection
     client.admin.command('ping')

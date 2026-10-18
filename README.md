@@ -1,52 +1,65 @@
 # College Filtering Application
 
-A full-stack, production-ready web application that helps students explore, filter, and compare colleges based on key criteria like location, branch, fees, and rankings. Built with a modern React frontend and a Python backend, this tool simplifies the decision-making process for higher education.
+A full-stack web application that helps students search and explore colleges by name, city, state, founding year, facilities, type, and rating. A React frontend talks to a Python REST API backed by MongoDB.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 19 (Create React App), Material UI, Bootstrap, React Router |
+| Backend | Python, Flask, Flask-CORS, Gunicorn |
+| Database | MongoDB Atlas (via PyMongo) |
 
 ## Project Structure
 
 ```
-APIPYTHON/
 ├── backend/
 │   └── apipython/
-│       ├── __main__.py          # Backend entry point
-│       └── app.py               # Flask or FastAPI app logic
+│       ├── __main__.py        # Flask API — entry point (`python __main__.py`)
+│       ├── app.py             # (unused placeholder)
+│       └── requirements.txt   # Python dependencies
 ├── frontend/
 │   └── collage/
-│       ├── node_modules/        # Node dependencies
-│       ├── public/              # Static public assets
-│       ├── src/
-│       │   ├── components/      # React components
-│       │   ├── App.css          # Styling
-│       │   ├── App.js           # Main App component (optional)
-│       │   ├── App.jsx          # Main App component (JSX version)
-│       │   ├── App.test.js      # Test file
-│       │   ├── index.css        # Global styles
-│       │   ├── index.js         # ReactDOM render point
-│       │   ├── logo.svg         # Logo
-│       │   ├── main.jsx         # Main JSX entry
-│       │   ├── reportWebVitals.js # Performance tracking
-│       │   └── setupTests.js    # Testing setup
-│       ├── package.json         # React dependencies
-│       └── package-lock.json    # Lock file
-├── .vscode/                     # VSCode config (optional)
-└── README.md                    # Project documentation
+│       ├── public/            # Static assets
+│       ├── src/               # React components and pages
+│       ├── package.json       # Node dependencies
+│       └── package-lock.json  # Lock file
+└── README.md
 ```
 
-## Installation
+## API Endpoints
 
-### Backend Setup
+The Flask API (default port 5000) exposes:
 
-Navigate to the backend directory and install the required dependencies:
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | Service info and endpoint list |
+| GET | `/health` | Health check with DB status and college count |
+| GET | `/search` | Multi-parameter search (name, city, state, year, rating, type, facilities) |
+| GET | `/college?name=` | Search by college name |
+| GET | `/stats` | Database statistics |
+| POST | `/setup` | Seed the database with 5 sample colleges |
+| DELETE | `/setup` | Clear all college data |
+
+## Setup
+
+### Backend
 
 ```bash
 cd backend/apipython
 pip install -r requirements.txt
+```
+
+Set your MongoDB connection string (the API will not start the database layer without it):
+
+```bash
+export MONGODB_URI="mongodb+srv://<user>:<password>@<cluster>/..."
 python __main__.py
 ```
 
-### Frontend Setup
+The API listens on port 5000 (override with the `PORT` env var).
 
-Navigate to the frontend directory and install the React dependencies:
+### Frontend
 
 ```bash
 cd frontend/collage
@@ -54,60 +67,25 @@ npm install
 npm start
 ```
 
-## Key Features
+The frontend expects the API at `http://localhost:5000`. Open http://localhost:3000 in your browser.
 
-The platform offers several powerful features designed to enhance the college search experience:
+## Data
 
-- **Advanced Filtering System**: Filter colleges by branch, fees, ranking, and location to find institutions that match your specific criteria
-- **Material UI Design**: Modern, clean interface built with Material UI components for an intuitive user experience
-- **Dark and Light Mode**: Toggle between themes with persistent settings that remember your preference
-- **College Comparison Tool**: Compare multiple colleges side-by-side to make informed decisions
-- **Favorites System**: Save your preferred colleges locally for quick access later
-- **Export Functionality**: Export your search results and comparisons to CSV format for offline analysis
-- **Responsive Design**: Fully responsive interface that works seamlessly across desktop, tablet, and mobile devices
-- **Error Handling**: Comprehensive error handling with user-friendly messages and recovery options
-- **API Documentation**: Well-documented backend API for easy integration and development
-- **Production Ready**: Configured for deployment with proper build and optimization settings
+There is no bundled dataset. After starting the backend, seed 5 sample colleges (Harvard, MIT, Stanford, UC Berkeley, UT Austin) with:
 
-## Testing Checklist
+```bash
+curl -X POST http://localhost:5000/setup
+```
 
-Before deploying or using the application, verify the following functionality:
+To use real data, insert your own documents into the `colleges` collection of the `college_search_db` database. Documents use fields like `name`, `city`, `state`, `year_founded`, `facilities`, `type`, `rating`, `enrollment`, `tuition`, and `acceptance_rate`.
 
-1. Start the backend server and confirm it's running properly
-2. Launch the frontend React application and ensure it loads correctly
-3. Test all search filters individually and in combination
-4. Verify the college comparison feature works with multiple selections
-5. Add colleges to favorites and confirm they persist after page refresh
-6. Test the CSV export functionality with different result sets
+## Notes
 
-## Technology Stack
-
-The platform is built using modern technologies chosen for performance, scalability, and maintainability:
-
-| Component | Technology |
-|-----------|------------|
-| Frontend | React.js with Material UI for component library |
-| Backend | Python with FastAPI or Flask for API development |
-| Database | MongoDB or PostgreSQL for data storage |
-| Styling | CSS combined with Material UI theming |
-| Development | Git for version control, Docker for containerization |
-| Deployment | Netlify or Vercel for frontend, Heroku for backend |
-
-## Future Enhancements
-
-Several improvements and features are planned for future releases:
-
-- Enhanced college data including ratings, tuition details, and enrollment statistics
-- Advanced theme customization options in the App.css configuration
-- Cloud deployment setup for both backend (Render/Heroku) and frontend (Netlify/Vercel)
-- User authentication system for personalized favorites and preferences
-- Advanced search algorithms with machine learning recommendations
-- Integration with external college databases and APIs
-- Mobile application development for iOS and Android platforms
-
-
+- This is a learning project, not a production deployment: there is no authentication on the API, no test suite beyond the Create React App boilerplate, and no container or CI configuration.
+- The frontend's Login/Signup pages call a `/login` endpoint that the API does not implement — they are UI-only.
+- `backend/apipython/app.py` is an empty placeholder — the entire API lives in `__main__.py`.
 
 ## Author
 
-**Shashank Reddy Gantla**  
+**Shashank Reddy Gantla**
 Email: shashankreddyg1@gmail.com
